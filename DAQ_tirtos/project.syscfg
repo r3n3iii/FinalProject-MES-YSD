@@ -1,0 +1,87 @@
+/**
+ * These arguments were used when this file was generated. They will be automatically applied on subsequent loads
+ * via the GUI or CLI. Run CLI with '--help' for additional information on how to override these arguments.
+ * @cliArgs --board "/ti/boards/MSP_EXP432P401R" --product "simplelink_msp432p4_sdk@3.40.01.02"
+ * @versions {"tool":"1.14.0+2667"}
+ */
+
+/**
+ * Import the modules used in this configuration.
+ */
+const GPIO  = scripting.addModule("/ti/drivers/GPIO");
+const GPIO1 = GPIO.addInstance();
+const GPIO2 = GPIO.addInstance();
+const GPIO3 = GPIO.addInstance();
+const GPIO4 = GPIO.addInstance();
+const GPIO5 = GPIO.addInstance();
+const I2C   = scripting.addModule("/ti/drivers/I2C", {}, false);
+const I2C1  = I2C.addInstance();
+const RTOS  = scripting.addModule("/ti/drivers/RTOS");
+const SPI   = scripting.addModule("/ti/drivers/SPI", {}, false);
+const SPI1  = SPI.addInstance();
+const UART  = scripting.addModule("/ti/drivers/UART", {}, false);
+const UART1 = UART.addInstance();
+const UART2 = UART.addInstance();
+
+/**
+ * Write custom configuration values to the imported modules.
+ */
+GPIO1.$hardware = system.deviceData.board.components.LED1_RED;
+GPIO1.$name     = "CONFIG_GPIO_LED_0";
+
+GPIO2.$hardware = system.deviceData.board.components.LED2_RED;
+GPIO2.$name     = "CONFIG_GPIO_LED_1";
+
+GPIO3.$name     = "CONFIG_GPIO_LED_2";
+GPIO3.$hardware = system.deviceData.board.components.LED2_GREEN;
+
+GPIO4.$name     = "CONFIG_GPIO_LED_3";
+GPIO4.$hardware = system.deviceData.board.components.LED2_BLUE;
+
+GPIO5.$hardware = system.deviceData.board.components.S2;
+GPIO5.$name     = "CONFIG_GPIO_BUTTON_1";
+
+I2C1.$name = "CONFIG_I2C_0";
+
+const Power                   = scripting.addModule("/ti/drivers/Power", {}, false);
+Power.performanceLevel3.$name = "ti_drivers_power_PowerMSP432PerfLevels0";
+Power.performanceLevel2.$name = "ti_drivers_power_PowerMSP432PerfLevels1";
+Power.performanceLevel1.$name = "ti_drivers_power_PowerMSP432PerfLevels2";
+Power.performanceLevel0.$name = "ti_drivers_power_PowerMSP432PerfLevels3";
+
+
+SPI1.$name = "CONFIG_SPI_0";
+
+UART1.$name     = "CONFIG_UART_0";
+UART1.$hardware = system.deviceData.board.components.XDS110UART;
+
+UART2.$name              = "CONFIG_UART_1";
+UART2.dataDirection      = "Send Only";
+UART2.baudRates          = [460800];
+UART2.uart.txPin.$assign = "boosterpack.4";
+
+/**
+ * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
+ * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
+ * re-solve from scratch.
+ */
+GPIO1.gpioPin.$suggestSolution               = "ball.4";
+GPIO2.gpioPin.$suggestSolution               = "ball.16";
+GPIO3.gpioPin.$suggestSolution               = "ball.17";
+GPIO4.gpioPin.$suggestSolution               = "ball.18";
+GPIO5.gpioPin.$suggestSolution               = "ball.8";
+I2C1.i2c.$suggestSolution                    = "EUSCI_B1";
+I2C1.i2c.sdaPin.$suggestSolution             = "boosterpack.10";
+I2C1.i2c.sclPin.$suggestSolution             = "boosterpack.9";
+RTOS.timer0.resource.$suggestSolution        = "Timer_A0";
+SPI1.spi.$suggestSolution                    = "EUSCI_B0";
+SPI1.spi.sclkPin.$suggestSolution            = "boosterpack.7";
+SPI1.spi.misoPin.$suggestSolution            = "boosterpack.14";
+SPI1.spi.mosiPin.$suggestSolution            = "boosterpack.15";
+SPI1.spi.dmaRxChannel.$suggestSolution       = "DMA_CH1";
+SPI1.spi.dmaTxChannel.$suggestSolution       = "DMA_CH0";
+SPI1.spi.dmaInterruptNumber.$suggestSolution = "DMA_INT0";
+UART1.uart.$suggestSolution                  = "EUSCI_A0";
+UART1.uart.txPin.$suggestSolution            = "ball.7";
+UART1.uart.rxPin.$suggestSolution            = "ball.6";
+UART2.uart.$suggestSolution                  = "EUSCI_A1";
