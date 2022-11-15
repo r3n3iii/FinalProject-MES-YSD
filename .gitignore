@@ -1,10 +1,10 @@
 /.metadata/
-.jxbrowser-data/*
+/.jxbrowser-data/*
 Release/*
 .xdchelp
 config/*
 .launches/*
 RemoteSystemsTempFiles/*
 dvt/*
-sEMG_daq/Debug/*
-sEMG_daq/tirtosCfg_common_MSP_EXP432P401R/Debug/*
+DAQ_tirtos/Debug/*
+DAQ_tirtos/tirtosCfg_common_MSP_EXP432P401R/Debug/*
