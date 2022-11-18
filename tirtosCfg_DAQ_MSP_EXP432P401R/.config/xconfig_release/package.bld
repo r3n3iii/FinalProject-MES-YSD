@@ -11,7 +11,7 @@ var makeAssembly = false;
 var Executable = xdc.module('xdc.bld.Executable');
 
 var exeOpts = new Executable.Attrs({
-        cfgScript: 'E:/Documents/MES_CCS_workspace/tirtosCfg_DAQ_MSP_EXP432P401R/release.cfg',
+        cfgScript: 'E:/Documents/Courses/MakingEmbeddedSystems/final_project/tirtosCfg_DAQ_MSP_EXP432P401R/release.cfg',
         profile: 'release',
         cfgHome: 'xconfig_release',
 });
@@ -40,8 +40,8 @@ else {
 }
 
 var thisObj = {
-    cfg:        'E:/Documents/MES_CCS_workspace/tirtosCfg_DAQ_MSP_EXP432P401R/release.cfg',
-    outputPath: 'E:/Documents/MES_CCS_workspace/tirtosCfg_DAQ_MSP_EXP432P401R/.config/xconfig_release',
+    cfg:        'E:/Documents/Courses/MakingEmbeddedSystems/final_project/tirtosCfg_DAQ_MSP_EXP432P401R/release.cfg',
+    outputPath: 'E:/Documents/Courses/MakingEmbeddedSystems/final_project/tirtosCfg_DAQ_MSP_EXP432P401R/.config/xconfig_release',
     exeName:    'release' + suffix,
     exeIntName: 'release' + suffix.replace('.', '_'),
     targ:       targ,

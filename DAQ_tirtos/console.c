@@ -14,12 +14,10 @@
   #define MIN(X, Y)     (((X) < (Y)) ? (X) : (Y))
 #endif
 
-#define NOT_FOUND       -1
+
 #define INT16_MAX_STR_LENGTH 8 // -65534: six characters plus a two NULLs
 #define INT32_MAX_STR_LENGTH 16
-#define NULL_CHAR            '\0'
-#define CR_CHAR              '\r'
-#define LF_CHAR              '\n'
+
 
 // global variables
 char mReceiveBuffer[CONSOLE_COMMAND_MAX_LENGTH];
@@ -37,6 +35,8 @@ static uint32_t ConsoleResetBuffer(char receiveBuffer[], const  uint32_t filledL
 
 static eCommandResult_T ConsoleUtilHexCharToInt(char charVal, uint8_t* pInt); // this might be replaceable with *pInt = atoi(str)
 static eCommandResult_T ConsoleUtilsIntToHexChar(uint8_t intVal, char* pChar); // this could be replaced with itoa (intVal, str, 16);
+
+
 
 // ConsoleCommandMatch
 // Look to see if the data in the buffer matches the command name given that
@@ -142,51 +142,43 @@ void ConsoleProcess(void)
     int32_t  found;
     eCommandResult_T result;
 
-    /*ConsoleIoReceive((uint8_t*)&(mReceiveBuffer[mReceivedSoFar]), ( CONSOLE_COMMAND_MAX_LENGTH - mReceivedSoFar ), &received);
-    if ( received > 0u || mReceiveBufferNeedsChecking)
+
+    commandTable = ConsoleCommandsGetTable();
+    cmdIndex = 0u;
+    found = NOT_FOUND;
+    while ( ( NULL != commandTable[cmdIndex].name ) && ( NOT_FOUND == found ) )
     {
-        mReceiveBufferNeedsChecking = false;
-        mReceivedSoFar += received;
-        cmdEndline = ConsoleCommandEndline(mReceiveBuffer, mReceivedSoFar);
-        if ( cmdEndline >= 0 )  // have complete string, find command
-        {*/
-            commandTable = ConsoleCommandsGetTable();
-            cmdIndex = 0u;
-            found = NOT_FOUND;
-            while ( ( NULL != commandTable[cmdIndex].name ) && ( NOT_FOUND == found ) )
+        if ( ConsoleCommandMatch(commandTable[cmdIndex].name, mReceiveBuffer) )
+        {
+            result = commandTable[cmdIndex].execute(mReceiveBuffer);
+            if ( COMMAND_SUCCESS != result )
             {
-                if ( ConsoleCommandMatch(commandTable[cmdIndex].name, mReceiveBuffer) )
-                {
-                    result = commandTable[cmdIndex].execute(mReceiveBuffer);
-                    if ( COMMAND_SUCCESS != result )
-                    {
-                        ConsoleIoSendString("Error: ");
-                        ConsoleIoSendString(mReceiveBuffer);
+                ConsoleIoSendString("Error: ");
+                ConsoleIoSendString(mReceiveBuffer);
 
-                        ConsoleIoSendString("Help: ");
-                        ConsoleIoSendString(commandTable[cmdIndex].help);
-                        ConsoleIoSendString(STR_ENDLINE);
+                ConsoleIoSendString("Help: ");
+                ConsoleIoSendString(commandTable[cmdIndex].help);
+                ConsoleIoSendString(STR_ENDLINE);
 
-                    }
-                    found = cmdIndex;
-                }
-                else
-                {
-                    cmdIndex++;
-
-                }
             }
-            if ( NOT_FOUND == found )
-                                    {
+            found = cmdIndex;
+        }
+        else
+        {
+            cmdIndex++;
 
-                                            ConsoleIoSendString("Command not found.");
-                                            ConsoleIoSendString(STR_ENDLINE);
-                                    }
-                                    //reset the buffer by moving over any leftovers and nulling the rest
-                                    // clear up to and including the found end line character
-                                    ConsoleResetBuffer(mReceiveBuffer,100, count);
-                                    count = 0;
-                                    ConsoleSendString(CONSOLE_PROMPT);
+        }
+    }
+    if ( NOT_FOUND == found )
+    {
+            ConsoleIoSendString("Command not found.");
+            ConsoleIoSendString(STR_ENDLINE);
+    }
+    //reset the buffer by moving over any leftovers and nulling the rest
+    // clear up to and including the found end line character
+    ConsoleResetBuffer(mReceiveBuffer,100, count);
+    count = 0;
+    ConsoleSendString(CONSOLE_PROMPT);
 }
 
 // ConsoleParamFindN
@@ -287,7 +279,32 @@ eCommandResult_T ConsoleReceiveParamHexUint16(const char * buffer, const uint8_t
     }
     return result;
 }
+// ConsoleReceiveParamInt16
+// Identify and obtain a parameter of type int16_t, sent in in decimal, possibly with a negative sign.
+// Note that this uses atoi, a somewhat costly function. You may want to replace it, see ConsoleReceiveParamHexUint16
+// for some ideas on how to do that.
+eCommandResult_T ConsoleReceiveParamString(const char * buffer, const uint8_t parameterNumber, char *parameterString)
+{
+    uint32_t startIndex = 0;
+    uint32_t i;
+    eCommandResult_T result;
+    char charVal;
 
+
+    result = ConsoleParamFindN(buffer, parameterNumber, &startIndex);
+
+    i = 0;
+    charVal = buffer[startIndex + i];
+    while ( ( LF_CHAR != charVal ) && ( CR_CHAR != charVal )
+            && ( PARAMETER_SEPARATER != charVal ) )
+    {
+        *(parameterString++) = charVal;                   // copy the relevant part
+        i++;
+        charVal = buffer[startIndex + i];
+    }
+
+    return result;
+}
 // ConsoleSendParamHexUint16
 // Send a parameter of type uint16 as hex.
 // This does not use a library function to do it (though you could

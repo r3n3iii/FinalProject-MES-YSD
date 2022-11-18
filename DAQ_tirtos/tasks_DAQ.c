@@ -34,13 +34,16 @@
 #include "ti_drivers_config.h"
 #include "printf.h"
 #include "myMailbox.h"
-
-#define EMGBUFF         20
+#include "filters.h"
+//#define EMGBUFF         64
 
 /*-----------------GLOBAL VARIABLES--------------------*/
 int16_t accelerometer[3], gyro[3];
 
-float  adcEMG0[EMGBUFF], adcEMG1[EMGBUFF];
+extern fProcessData (*filter_semg_ptr)(MsgSemgData *data);
+extern fProcessData (*filter_imu_ptr)(MsgMPU6050Data *data);
+
+
 uint16_t i_emg=0;
 
 //console Variables
@@ -89,11 +92,6 @@ void fnTaskCLI(UArg arg0, UArg arg1)
 void fnTaskSEMG_getData(UArg arg0, UArg arg1)
 {
     MsgSemgData semg;
-    float  adcEmg_pr0[EMGBUFF], adcEmg_pr1[EMGBUFF];
-    memset(adcEmg_pr0, 0x00, EMGBUFF * sizeof(float));
-    memset(adcEmg_pr1, 0x00, EMGBUFF * sizeof(float));
-
-
 
        while (1)
        {
@@ -109,56 +107,45 @@ void fnTaskSEMG_getData(UArg arg0, UArg arg1)
 
            //ADC_MEM0 = EmgSensor on P5.4, ADC_MEM1 = EmgSensor on P5.0
 
-           /*adcEmg_pr0[i_emg] = convertToFloat(MAP_ADC14_getResult(ADC_MEM0)-8191);            //Converting EMG signal to float an mV
-           adcEmg_pr1[i_emg] = convertToFloat(MAP_ADC14_getResult(ADC_MEM1)-8191);*/
-
-           semg.emgPlot[0] = convertToFloat(MAP_ADC14_getResult(ADC_MEM0)-8191);            //Converting EMG signal to float an mV
-           semg.emgPlot[1] = convertToFloat(MAP_ADC14_getResult(ADC_MEM1)-8191);
-           semg.emgPlot[2] = convertToFloat(MAP_ADC14_getResult(ADC_MEM2)-8191);
-           semg.emgPlot[3] = convertToFloat(MAP_ADC14_getResult(ADC_MEM3)-8191);
-          /* semg.emgPlot[4] = convertToFloat(MAP_ADC14_getResult(ADC_MEM4)-8191);
-           semg.emgPlot[5] = convertToFloat(MAP_ADC14_getResult(ADC_MEM5)-8191);
-           semg.emgPlot[6] = convertToFloat(MAP_ADC14_getResult(ADC_MEM6)-8191);
-           semg.emgPlot[7] = convertToFloat(MAP_ADC14_getResult(ADC_MEM7)-8191);*/
+           semg.emgRaw[0] = MAP_ADC14_getResult(ADC_MEM0)-8191;            //Converting EMG signal to float an mV
+           semg.emgRaw[1] = MAP_ADC14_getResult(ADC_MEM1)-8191;
+           semg.emgRaw[2] = MAP_ADC14_getResult(ADC_MEM2)-8191;
+           semg.emgRaw[3] = MAP_ADC14_getResult(ADC_MEM3)-8191;
+          /* semg.emgRaw[0] = convertToFloat(MAP_ADC14_getResult(ADC_MEM0)-8191);            //Converting EMG signal to float an mV
+           semg.emgRaw[1] = convertToFloat(MAP_ADC14_getResult(ADC_MEM1)-8191);
+           semg.emgRaw[2] = convertToFloat(MAP_ADC14_getResult(ADC_MEM2)-8191);
+           semg.emgRaw[3] = convertToFloat(MAP_ADC14_getResult(ADC_MEM3)-8191);*/
+          /* semg.emgRaw[4] = convertToFloat(MAP_ADC14_getResult(ADC_MEM4)-8191);
+           semg.emgRaw[5] = convertToFloat(MAP_ADC14_getResult(ADC_MEM5)-8191);
+           semg.emgRaw[6] = convertToFloat(MAP_ADC14_getResult(ADC_MEM6)-8191);
+           semg.emgRaw[7] = convertToFloat(MAP_ADC14_getResult(ADC_MEM7)-8191);*/
 
            Mailbox_post(mbHandle_semg, &semg, BIOS_WAIT_FOREVER);//Print raw data over serial
-
-          /*
-           i_emg++;
-           if (i_emg==EMGBUFF)
-           {
-              memcpy(&adcEMG0, &adcEmg_pr0, sizeof(adcEmg_pr0));                   //coping buffer emg to a global variable buffer
-              memcpy(&adcEMG1, &adcEmg_pr1, sizeof(adcEmg_pr1));                   //to use in RMS task function
-              i_emg=0;
-              Semaphore_post(SEM_printData);                                           //Making EmgRms task ready to run
-           }*/
        }
 }
 
 void fnTaskSemg_process()
 {
-
     MsgSemgData semg_rcv;
     MsgPrintData semgFormat_msg;
 
+    filter_semg_ptr=&semg_raw;
 
-   // UART_write(uart1, "DAQ streaming channel for sEMG and MPU6050 data\r\n", sizeof("DAQ streaming channel for sEMG and MPU6050 data\r\n"));
+    UART_write(uart1, "DAQ streaming channel for sEMG and MPU6050 data\r\n", sizeof("DAQ streaming channel for sEMG and MPU6050 data\r\n"));
 
-        while(1)
+    while(1)
     {
 
-     Mailbox_pend(mbHandle_semg, &semg_rcv, BIOS_WAIT_FOREVER);
-     //num_char = sprintf(str, "RAW EMG: %.5f, %.5f,\r\n",semg_rcv.emgPlot[0],semg_rcv.emgPlot[1]);
-     /*num_char = sprintf(str, "RAW EMG: %.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f\r\n", semg_rcv.emgPlot[0], \
-                                                                     semg_rcv.emgPlot[1],semg_rcv.emgPlot[2],semg_rcv.emgPlot[3], \
-                                                                     semg_rcv.emgPlot[4],semg_rcv.emgPlot[5],semg_rcv.emgPlot[6], \
-                                                                     semg_rcv.emgPlot[7]);*/
-    semgFormat_msg.num_char = sprintf(semgFormat_msg.strData, "EMG: %.5f, %.5f, %.5f, %.5f\r\n", semg_rcv.emgPlot[0], \
-                                                                          semg_rcv.emgPlot[1],semg_rcv.emgPlot[2],semg_rcv.emgPlot[3]/*, \
-                                                                          semg_rcv.emgPlot[4],semg_rcv.emgPlot[5],semg_rcv.emgPlot[6], \
-                                                                          semg_rcv.emgPlot[7]*/);
-     Mailbox_post(mbHandle_printData, &semgFormat_msg, BIOS_WAIT_FOREVER);
-     //UART_write(uart1, str, num_char);
+        Mailbox_pend(mbHandle_semg, &semg_rcv, BIOS_WAIT_FOREVER);
+
+
+        if (filter_semg_ptr(&semg_rcv) == DONE){
+
+            semgFormat_msg.num_char = sprintf(semgFormat_msg.strData, "EMG: %.5f, %.5f, %.5f, %.5f\r\n", convertToFloat(semg_rcv.emgRaw[0]), \
+                                              convertToFloat(semg_rcv.emgRaw[1]),convertToFloat(semg_rcv.emgRaw[2]),convertToFloat(semg_rcv.emgRaw[3]));
+
+            Mailbox_post(mbHandle_printData, &semgFormat_msg, BIOS_WAIT_FOREVER);
+        }
     }
 }
 /*  ======== fnTaskMpu6050 ========
@@ -193,16 +180,19 @@ void fnTaskMpu6050_process(UArg arg0, UArg arg1)
 {
     MsgMPU6050Data mpu6050_rcv;
     MsgPrintData mpu6050Format_msg;
+    filter_imu_ptr=&imu_raw;
+
     while(1)
     {
         Mailbox_pend(mbHandle_mpu6050, &mpu6050_rcv, BIOS_WAIT_FOREVER);
+        if (filter_imu_ptr(&mpu6050_rcv) == DONE){
 
-        mpu6050Format_msg.num_char = sprintf(mpu6050Format_msg.strData, "IMU: %d, %d, %d, %d, %d, %d\r\n",  \
+            mpu6050Format_msg.num_char = sprintf(mpu6050Format_msg.strData, "IMU: %d, %d, %d, %d, %d, %d\r\n",  \
                                              mpu6050_rcv.accelerometer[0],mpu6050_rcv.accelerometer[1], mpu6050_rcv.accelerometer[2],\
                                              mpu6050_rcv.gyro[0],   mpu6050_rcv.gyro[1],mpu6050_rcv.gyro[2]);
 
-       //UART_write(uart1, strBuff, num_chars);
-       Mailbox_post(mbHandle_printData, &mpu6050Format_msg, BIOS_WAIT_FOREVER);
+            Mailbox_post(mbHandle_printData, &mpu6050Format_msg, BIOS_WAIT_FOREVER);
+        }
     }
 }
 

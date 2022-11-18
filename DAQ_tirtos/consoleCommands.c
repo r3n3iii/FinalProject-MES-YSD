@@ -11,14 +11,15 @@
 #include "console.h"
 #include "consoleIo.h"
 #include "version.h"
+#include "filters.h"
 
-#define IGNORE_UNUSED_VARIABLE(x)     if ( &x == &x ) {}
 
 static eCommandResult_T ConsoleCommandComment(const char buffer[]);
 static eCommandResult_T ConsoleCommandVer(const char buffer[]);
 static eCommandResult_T ConsoleCommandHelp(const char buffer[]);
 static eCommandResult_T ConsoleCommandParamExampleInt16(const char buffer[]);
 static eCommandResult_T ConsoleCommandParamExampleHexUint16(const char buffer[]);
+static eCommandResult_T ConsoleCommandFilter(const char buffer[]);
 
 static const sConsoleCommandTable_T mConsoleCommandTable[] =
 {
@@ -27,6 +28,7 @@ static const sConsoleCommandTable_T mConsoleCommandTable[] =
     {"ver", &ConsoleCommandVer, HELP("Get the version string")},
     {"int", &ConsoleCommandParamExampleInt16, HELP("How to get a signed int16 from params list: int -321")},
     {"u16h", &ConsoleCommandParamExampleHexUint16, HELP("How to get a hex u16 from the params list: u16h aB12")},
+    {"filter", &ConsoleCommandFilter, HELP("Filter data from the sensors. filter semg lowpass_4hz")},
 
     CONSOLE_COMMAND_TABLE_END // must be LAST
 };
@@ -99,6 +101,59 @@ static eCommandResult_T ConsoleCommandVer(const char buffer[])
     ConsoleIoSendString(STR_ENDLINE);
     return result;
 }
+
+static eCommandResult_T ConsoleCommandFilter(const char buffer[]){
+    //char parameterString[15];
+
+    char str[16];
+
+    const sFilterCommandTable_T* filterTable;
+
+    uint32_t cmdIndex;
+
+    int32_t  paramfound=NOT_FOUND;
+    eCommandResult_T result;
+
+
+    filterTable = FilterCommandsGetTable();
+    cmdIndex = 0u;
+
+    result = ConsoleReceiveParamString(buffer, 1, str);
+
+     while ( ( NULL != filterTable[cmdIndex].name ) && ( NOT_FOUND == paramfound ) )
+     {
+         if ( FilterParamMatch(filterTable[cmdIndex].name, str) )
+         {
+             result = filterTable[cmdIndex].execute(str);
+             if ( COMMAND_SUCCESS != result )
+             {
+                 ConsoleIoSendString("Error: ");
+                 ConsoleIoSendString(str);
+
+                 ConsoleIoSendString("Help: ");
+                 ConsoleIoSendString(filterTable[cmdIndex].help);
+                 ConsoleIoSendString(STR_ENDLINE);
+
+             }
+             paramfound = cmdIndex;
+         }
+         else
+         {
+             cmdIndex++;
+
+         }
+     }
+     if ( NOT_FOUND == paramfound )
+     {
+             ConsoleIoSendString("Param not found.");
+             ConsoleIoSendString(STR_ENDLINE);
+     }
+
+     return result;
+ }
+
+
+
 
 
 const sConsoleCommandTable_T* ConsoleCommandsGetTable(void)

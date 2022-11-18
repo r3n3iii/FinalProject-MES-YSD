@@ -32,6 +32,7 @@ typedef struct sConsoleCommandStruct
 } sConsoleCommandTable_T;
 
 #define CONSOLE_COMMAND_TABLE_END {NULL, NULL, HELP("")}
+#define IGNORE_UNUSED_VARIABLE(x)     if ( &x == &x ) {}
 
 const sConsoleCommandTable_T* ConsoleCommandsGetTable(void);
 

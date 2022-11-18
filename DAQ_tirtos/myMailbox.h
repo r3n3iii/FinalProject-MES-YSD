@@ -13,7 +13,7 @@
 
 //***** Global Variables ******************************************************
 typedef struct MsgSemgData{
-    float  emgPlot[EMG_CHANNELS];
+    uint_fast16_t  emgRaw[EMG_CHANNELS];
 } MsgSemgData;
 
 typedef struct MsgMPU6050Data{
