@@ -59,7 +59,7 @@ void myUart_init()
     uartParamsA1.readDataMode = UART_DATA_BINARY;
     uartParamsA1.readReturnMode = UART_RETURN_FULL;
     uartParamsA1.readEcho = UART_ECHO_OFF;
-    uartParamsA1.baudRate = 460800;
+    uartParamsA1.baudRate = 921600;
     uartParamsA1.readMode =UART_MODE_BLOCKING;
     uartParamsA1.stopBits = UART_STOP_ONE;
      uartParamsA1.parityType = UART_PAR_NONE;

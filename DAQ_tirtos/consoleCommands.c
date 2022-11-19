@@ -13,14 +13,18 @@
 #include "version.h"
 #include "filters.h"
 
-
+extern uint8_t DISPLAY_IMU;
+extern uint8_t DISPLAY_SEMG;
+extern uint8_t  WINPLOTTER;
 static eCommandResult_T ConsoleCommandComment(const char buffer[]);
 static eCommandResult_T ConsoleCommandVer(const char buffer[]);
 static eCommandResult_T ConsoleCommandHelp(const char buffer[]);
 static eCommandResult_T ConsoleCommandParamExampleInt16(const char buffer[]);
 static eCommandResult_T ConsoleCommandParamExampleHexUint16(const char buffer[]);
 static eCommandResult_T ConsoleCommandFilter(const char buffer[]);
-
+static eCommandResult_T ConsoleCommandImuToggleData(const char buffer[]);
+static eCommandResult_T ConsoleCommandSemgToggleData(const char buffer[]);
+static eCommandResult_T ConsoleCommandWinPlotToggle(const char buffer[]);
 static const sConsoleCommandTable_T mConsoleCommandTable[] =
 {
     {";", &ConsoleCommandComment, HELP("Comment! You do need a space after the semicolon. ")},
@@ -28,7 +32,10 @@ static const sConsoleCommandTable_T mConsoleCommandTable[] =
     {"ver", &ConsoleCommandVer, HELP("Get the version string")},
     {"int", &ConsoleCommandParamExampleInt16, HELP("How to get a signed int16 from params list: int -321")},
     {"u16h", &ConsoleCommandParamExampleHexUint16, HELP("How to get a hex u16 from the params list: u16h aB12")},
-    {"filter", &ConsoleCommandFilter, HELP("Filter data from the sensors. filter semg lowpass_4hz")},
+    {"filter", &ConsoleCommandFilter, HELP("Filter sensor data. Type 'filter help'.")},
+    {"imu_toggle_data", &ConsoleCommandImuToggleData, HELP("Toggles data display for IMU")},
+    {"semg_toggle_data", &ConsoleCommandSemgToggleData, HELP("Toggles data display for SEMG")},
+    {"WINPLOT_toggle_data", &ConsoleCommandWinPlotToggle, HELP("Toggles data output format(winPlot")},
 
     CONSOLE_COMMAND_TABLE_END // must be LAST
 };
@@ -152,7 +159,63 @@ static eCommandResult_T ConsoleCommandFilter(const char buffer[]){
      return result;
  }
 
+static eCommandResult_T ConsoleCommandImuToggleData(const char buffer[])
+{
+    eCommandResult_T result = COMMAND_SUCCESS;
 
+     IGNORE_UNUSED_VARIABLE(buffer);
+
+     if (DISPLAY_IMU){
+         DISPLAY_IMU = 0;
+         ConsoleIoSendString("NOT displaying IMU data!");
+
+     }
+     else{
+         DISPLAY_IMU = 1;
+         ConsoleIoSendString("Displaying IMU data!");
+     }
+
+     ConsoleIoSendString(STR_ENDLINE);
+     return result;
+}
+static eCommandResult_T ConsoleCommandSemgToggleData(const char buffer[]){
+    eCommandResult_T result = COMMAND_SUCCESS;
+
+     IGNORE_UNUSED_VARIABLE(buffer);
+
+     if (DISPLAY_SEMG){
+         DISPLAY_SEMG = 0;
+         ConsoleIoSendString("NOT displaying SEMG data!");
+
+     }
+     else{
+
+         DISPLAY_SEMG = 1;
+         ConsoleIoSendString("Displaying SEMG data!");
+     }
+
+     ConsoleIoSendString(STR_ENDLINE);
+     return result;
+}
+static eCommandResult_T ConsoleCommandWinPlotToggle(const char buffer[]){
+    eCommandResult_T result = COMMAND_SUCCESS;
+
+     IGNORE_UNUSED_VARIABLE(buffer);
+
+     if (WINPLOTTER){
+         WINPLOTTER = 0;
+         ConsoleIoSendString("Display CSV format!");
+
+     }
+     else{
+
+         WINPLOTTER = 1;
+         ConsoleIoSendString("Output WINPLOT format!");
+     }
+
+     ConsoleIoSendString(STR_ENDLINE);
+     return result;
+}
 
 
 

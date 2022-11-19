@@ -47,13 +47,15 @@ void myGpio_init(void)
     GPIO_setConfig(CONFIG_GPIO_LED_2, GPIO_CFG_OUT_STD | GPIO_CFG_OUT_LOW);     // Configure "LED_2" as an output and set it low (i.e. '0')
     GPIO_setConfig(CONFIG_GPIO_LED_3, GPIO_CFG_OUT_STD | GPIO_CFG_OUT_LOW);     // Configure "LED_3" as an output and set it low (i.e. '0')
 
+    GPIO_setConfig(CONFIG_SD_LED_RED,   GPIO_CFG_OUT_STD | GPIO_CFG_OUT_HIGH);     // Configure "LED_3" as an output and set it low (i.e. '0')
+    GPIO_setConfig(CONFIG_SD_LED_GREEN, GPIO_CFG_OUT_STD | GPIO_CFG_OUT_HIGH);     // Configure "LED_3" as an output and set it low (i.e. '0')
+    GPIO_setConfig(CONFIG_SD_LED_BLUE,  GPIO_CFG_OUT_STD | GPIO_CFG_OUT_HIGH);     // Configure "LED_3" as an output and set it low (i.e. '0')
+
 
     GPIO_setConfig(CONFIG_GPIO_BUTTON_0|CONFIG_GPIO_BUTTON_1,                                        // Configure I/O pin for Button1
                    GPIO_CFG_IN_PU                                               // Configure as input pin with internal pull-up
                    | GPIO_CFG_IN_INT_FALLING                                    // Configure interrupt to trigger on falling edge
     );
-    // Turn on user LEDs
-   // GPIO_write(CONFIG_GPIO_LED_0, CONFIG_LED_ON);                               // Turn on "LED_0" (i.e. set its pin to '1')
 
 
     // Install button interrupt callback functions
@@ -67,18 +69,3 @@ void myGpio_init(void)
     printf("GPIO has been initialized\n");
 }
 
-//*****************************************************************************
-// gpioButtonFxn1
-//
-// Callback function for the GPIO interrupt on Board_GPIO_BUTTON1
-//
-// Notes:
-//   - CONFIG_GPIO_BUTTON_1 is connected to Switch 2 (SW2) on the LaunchPad
-//   - The "index" argument is not used by this function, but it references
-//     which GPIO input was triggered as defined by the GPIOName provided
-//     in the project's board specific header file
-//*****************************************************************************
-void gpioButtonFxn1(uint_least8_t index)
-{
-    GPIO_toggle(CONFIG_GPIO_LED_1);                                             // Toggle LED
-}

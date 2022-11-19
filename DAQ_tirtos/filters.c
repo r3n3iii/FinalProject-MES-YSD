@@ -9,11 +9,11 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define EMGBUFF         64
-#define LOG2EMGBUFF     6   //log2(EMGBUFF)
+#define EMGBUFF         16
+#define LOG2EMGBUFF     4   //log2(EMGBUFF)
 
-#define IMUBUFF         16
-#define LOG2IMUBUFF     4 //log2(IMUBUFF)
+#define IMUBUFF         8
+#define LOG2IMUBUFF     3 //log2(IMUBUFF)
 
 uint_fast16_t  bSemg00[EMGBUFF], bSemg01[EMGBUFF],bSemg02[EMGBUFF], bSemg03[EMGBUFF];
                 /*,bSemg04[EMGBUFF],bSemg05[EMGBUFF], \
@@ -35,9 +35,9 @@ static eCommandResult_T FilterParamQuaternions(const char buffer[]);
 
 static const sFilterCommandTable_T mFilterParamTable[] =
 {
+    {"help", &FilterParamHelp, HELP("Lists the filters available")},
     {"semg_raw", &FilterParamSemgRaw, HELP("Default. Output raw semg data.")},
     {"semg_mav", &FilterParamSemgMovingAvg, HELP("Applying moving average to semg data")},
-    {"help", &FilterParamHelp, HELP("Lists the filters available")},
     {"semg_lp_4hz", &FilterParamSemgLp_4Hz, HELP("Apply 4hz lowpass filter to sEmg signals")},
     {"imu_raw", &FilterParamIMURaw, HELP("Default. Output raw IMU data.")},
     {"imu_mav", &FilterParamIMUMovingAvg, HELP("Applying moving average to imu data")},
@@ -59,7 +59,7 @@ static eCommandResult_T FilterParamSemgMovingAvg(const char buffer[]){
 
     eCommandResult_T result = COMMAND_SUCCESS;
     filter_semg_ptr=&semg_mav;
-    ConsoleIoSendString("SEMG Filter: Moving Average 64 samples ");
+    ConsoleIoSendString("SEMG Filter: Moving Average 16 samples ");
     ConsoleIoSendString(STR_ENDLINE);
     return result;
 }
@@ -101,7 +101,7 @@ static eCommandResult_T FilterParamIMURaw(const char buffer[])
 static eCommandResult_T FilterParamIMUMovingAvg(const char buffer[]){
     eCommandResult_T result = COMMAND_SUCCESS;
     filter_imu_ptr=&imu_mav;
-    ConsoleIoSendString("IMU Filter: Moving Average 64 samples ");
+    ConsoleIoSendString("IMU Filter: Moving Average 8 samples ");
     ConsoleIoSendString(STR_ENDLINE);
     return result;
 }
@@ -154,7 +154,7 @@ uint32_t FilterParamMatch(const char* name, const char *buffer)
 fProcessData semg_mav(MsgSemgData *data){
     static uint8_t index = 0;
     static uint8_t flag = 0;
-    static uint_fast16_t sum[4] = {0, 0, 0, 0};
+    static uint32_t sum[4] = {0, 0, 0, 0};
     static bool is_full = 0;
     uint8_t i;
     if  (flag == 0){
@@ -208,7 +208,7 @@ fProcessData semg_mav(MsgSemgData *data){
 
      for (i=0 ; i< 4; i++)
      {
-         data->emgRaw[i]= (sum[i]>> LOG2EMGBUFF);
+         data->emgRaw[i]= (uint_fast16_t)(sum[i]>> LOG2EMGBUFF);
 
      }
      index ++ ;
@@ -230,7 +230,7 @@ fProcessData imu_raw(MsgMPU6050Data *data){
 fProcessData imu_mav(MsgMPU6050Data *data){
     static uint8_t index = 0;
     static uint8_t flag = 0;
-    static int16_t sum[6] = {0, 0, 0, 0, 0, 0};
+    static int32_t sum[6] = {0, 0, 0, 0, 0, 0};
     static bool is_full = 0;
 
     if  (flag == 0){
@@ -291,12 +291,12 @@ fProcessData imu_mav(MsgMPU6050Data *data){
      sum[5] +=  bImu05[index];
 
 
-    data->accelerometer[0]  = (sum[0] >> LOG2IMUBUFF);
-    data->accelerometer[1]  = (sum[1] >> LOG2IMUBUFF);
-    data->accelerometer[2]  = (sum[2] >> LOG2IMUBUFF);
-    data->gyro[0]           = (sum[3] >> LOG2IMUBUFF);
-    data->gyro[1]           = (sum[4] >> LOG2IMUBUFF);
-    data->gyro[2]           = (sum[5] >> LOG2IMUBUFF);
+    data->accelerometer[0]  = (int16_t)(sum[0] >> LOG2IMUBUFF);
+    data->accelerometer[1]  = (int16_t) (sum[1] >> LOG2IMUBUFF);
+    data->accelerometer[2]  = (int16_t)(sum[2] >> LOG2IMUBUFF);
+    data->gyro[0]           = (int16_t)(sum[3] >> LOG2IMUBUFF);
+    data->gyro[1]           = (int16_t)(sum[4] >> LOG2IMUBUFF);
+    data->gyro[2]           = (int16_t)(sum[5] >> LOG2IMUBUFF);
 
     return DONE;
 

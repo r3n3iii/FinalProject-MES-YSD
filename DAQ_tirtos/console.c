@@ -118,7 +118,7 @@ void ConsoleInit(void)
     uint32_t i;
 
     ConsoleIoInit();
-    ConsoleIoSendString("Welcome to the Consolinator, your gateway to testing code and hardware.");
+    ConsoleIoSendString("Console for 8ch sEMG and 1ch MPU6050 data adquisition system. Type 'help' for a list of commands.");
     ConsoleIoSendString(STR_ENDLINE);
     ConsoleIoSendString(CONSOLE_PROMPT);
     mReceivedSoFar = 0u;

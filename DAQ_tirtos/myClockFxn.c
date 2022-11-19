@@ -41,6 +41,7 @@ void HeartBeatFxn()
 
 void SlowClockFnx()
 {
+    MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
     Semaphore_post(SEM_mpu6050);
     Semaphore_post(SEM_cli);
 }

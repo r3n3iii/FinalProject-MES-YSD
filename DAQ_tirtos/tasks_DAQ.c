@@ -27,6 +27,7 @@
 /* Board Header file */
 
 #include "console.h"
+#include "consoleCommands.h"
 #include "myAdc.h"
 #include "myGpio.h"
 #include "myUart.h"
@@ -36,16 +37,20 @@
 #include "myMailbox.h"
 #include "filters.h"
 #include "sdCard.h"
-//#define EMGBUFF         64
+
+
 
 /*-----------------GLOBAL VARIABLES--------------------*/
 int16_t accelerometer[3], gyro[3];
 
+uint8_t WINPLOTTER  = 0;
+uint8_t DISPLAY_IMU = 1;
+uint8_t DISPLAY_SEMG = 1;
+
 extern fProcessData (*filter_semg_ptr)(MsgSemgData *data);
 extern fProcessData (*filter_imu_ptr)(MsgMPU6050Data *data);
 
-
-uint16_t i_emg=0;
+//uint16_t i_emg=0;
 
 //console Variables
 uint8_t mReceiveBuffer[100];
@@ -71,8 +76,7 @@ void bufclear(void)
     }
 
 }
-const char inputfile[] = "fat:"STR(DRIVE_NUM)":input.txt";
-const char outputfile[] = "fat:"STR(DRIVE_NUM)":output.txt";
+const char inputfile[] = "fat:"STR(DRIVE_NUM)":sensorData.txt";
 
 const char textarray[] = \
 "***********************************************************************\n"
@@ -129,8 +133,8 @@ void fnTaskCLI(UArg arg0, UArg arg1)
            ConsoleProcess();
         }
 
-       MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN0); // LED B - visual clue that we've received a request over USB
-       MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN0); // LED B - visual clue off
+       //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN0); // LED B - visual clue that we've received a request over USB
+       //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN0); // LED B - visual clue off
    }
 }
 
@@ -146,7 +150,7 @@ void fnTaskSEMG_getData(UArg arg0, UArg arg1)
            Semaphore_pend(SEM_semg, BIOS_WAIT_FOREVER);                              // Wait for semaphore from HWI callback function
 
            uint64_t status = 0;
-           while((status & ADC_INT1)==0)                           //Spin here until ADC finish conversion for EMG channels
+           while((status & ADC_INT7)==0)                           //Spin here until ADC finish conversion for EMG channels
            {
                MAP_ADC14_toggleConversionTrigger();
                status = MAP_ADC14_getEnabledInterruptStatus();
@@ -156,9 +160,9 @@ void fnTaskSEMG_getData(UArg arg0, UArg arg1)
            //ADC_MEM0 = EmgSensor on P5.4, ADC_MEM1 = EmgSensor on P5.0
 
            semg.emgRaw[0] = MAP_ADC14_getResult(ADC_MEM0)-8191;            //Converting EMG signal to float an mV
-           semg.emgRaw[1] = MAP_ADC14_getResult(ADC_MEM1)-8191;
-           semg.emgRaw[2] = MAP_ADC14_getResult(ADC_MEM2)-8191;
-           semg.emgRaw[3] = MAP_ADC14_getResult(ADC_MEM3)-8191;
+           semg.emgRaw[1] = MAP_ADC14_getResult(ADC_MEM3)-8191;
+           semg.emgRaw[2] = MAP_ADC14_getResult(ADC_MEM6)-8191;
+           semg.emgRaw[3] = MAP_ADC14_getResult(ADC_MEM7)-8191;
 
            Mailbox_post(mbHandle_semg, &semg, BIOS_WAIT_FOREVER);//Print raw data over serial
        }
@@ -179,11 +183,16 @@ void fnTaskSemg_process()
         Mailbox_pend(mbHandle_semg, &semg_rcv, BIOS_WAIT_FOREVER);
 
 
-        if (filter_semg_ptr(&semg_rcv) == DONE){
+        if (filter_semg_ptr(&semg_rcv) == DONE &&  DISPLAY_SEMG == 1){
 
-            semgFormat_msg.num_char = sprintf(semgFormat_msg.strData, "EMG: %.5f, %.5f, %.5f, %.5f\r\n", convertToFloat(semg_rcv.emgRaw[0]), \
-                                              convertToFloat(semg_rcv.emgRaw[1]),convertToFloat(semg_rcv.emgRaw[2]),convertToFloat(semg_rcv.emgRaw[3]));
-
+            if (WINPLOTTER){
+                semgFormat_msg.num_char = sprintf(semgFormat_msg.strData, "EMG: %.5f %.5f %.5f %.5f;\r\n" , convertToFloat(semg_rcv.emgRaw[0]), \
+                                                  convertToFloat(semg_rcv.emgRaw[1]),convertToFloat(semg_rcv.emgRaw[2]),convertToFloat(semg_rcv.emgRaw[3]));
+            }
+                else{
+                semgFormat_msg.num_char = sprintf(semgFormat_msg.strData,"EMG: %.5f, %.5f, %.5f, %.5f\r\n" , convertToFloat(semg_rcv.emgRaw[0]), \
+                                                          convertToFloat(semg_rcv.emgRaw[1]),convertToFloat(semg_rcv.emgRaw[2]),convertToFloat(semg_rcv.emgRaw[3]));
+            }
             Mailbox_post(mbHandle_printData, &semgFormat_msg, BIOS_WAIT_FOREVER);
         }
     }
@@ -225,12 +234,18 @@ void fnTaskMpu6050_process(UArg arg0, UArg arg1)
     while(1)
     {
         Mailbox_pend(mbHandle_mpu6050, &mpu6050_rcv, BIOS_WAIT_FOREVER);
-        if (filter_imu_ptr(&mpu6050_rcv) == DONE){
-
-            mpu6050Format_msg.num_char = sprintf(mpu6050Format_msg.strData, "IMU: %d, %d, %d, %d, %d, %d\r\n",  \
+        if (filter_imu_ptr(&mpu6050_rcv) == DONE &&  DISPLAY_IMU == 1) {
+            if (WINPLOTTER){
+            mpu6050Format_msg.num_char = sprintf(mpu6050Format_msg.strData, "IMU: %d %d %d %d %d %d;\r\n",  \
                                              mpu6050_rcv.accelerometer[0],mpu6050_rcv.accelerometer[1], mpu6050_rcv.accelerometer[2],\
                                              mpu6050_rcv.gyro[0],   mpu6050_rcv.gyro[1],mpu6050_rcv.gyro[2]);
+            }
+            else{
 
+            mpu6050Format_msg.num_char = sprintf(mpu6050Format_msg.strData, "IMU: %d, %d, %d, %d, %d, %d\r\n",  \
+                                                        mpu6050_rcv.accelerometer[0],mpu6050_rcv.accelerometer[1], mpu6050_rcv.accelerometer[2],\
+                                                        mpu6050_rcv.gyro[0],   mpu6050_rcv.gyro[1],mpu6050_rcv.gyro[2]);
+            }
             Mailbox_post(mbHandle_printData, &mpu6050Format_msg, BIOS_WAIT_FOREVER);
         }
     }
@@ -253,18 +268,12 @@ void fnSDCardSave(UArg arg0, UArg arg1){
     SDFatFS_Handle sdfatfsHandle;
 
     /* Variables for the CIO functions */
-    FILE *src, *dst;
+    FILE *src;
 
-    char strData[100];
-
-    /* Variables to keep track of the file copy progress */
-    unsigned int bytesRead = 0;
-    unsigned int bytesWritten = 0;
+   /* Variables to keep track of the file copy progress */
     unsigned int filesize;
-    unsigned int totalBytesCopied = 0;
+    uint8_t i;
 
-    /* Return variables */
-    int result;
     /* Call driver init functions */
     SDFatFS_init();
 
@@ -274,21 +283,69 @@ void fnSDCardSave(UArg arg0, UArg arg1){
 
     /* Initialize real-time clock */
    // clock_settime(CLOCK_REALTIME, &ts);
-   // Semaphore_pend(SEM_sdCard_Save, BIOS_WAIT_FOREVER);
+
     /* Mount and register the SD Card */
     sdfatfsHandle = SDFatFS_open(CONFIG_SD_0, DRIVE_NUM);
     if (sdfatfsHandle == NULL) {
-     //   UART_write(uart0, "Error starting the SD card\n", sizeof("Error starting the SD card\n"));
-        //while (1);
+
+     // "Error starting the SD card
+        for (i = 0; i<5;i++){
+            GPIO_toggle(CONFIG_SD_LED_RED); // Toggle LED
+            Task_sleep(100);
+        }
         Task_block(HandleTaskSDCard);
-
     }
-    else {
+    while(1){
 
-       // UART_write(uart0, "Drive %u is mounted\n", DRIVE_NUM);
-    }
+        Semaphore_pend(SEM_sdCard_Save, BIOS_WAIT_FOREVER);
 
+        // Try to open the source file
+        src = fopen(inputfile, "r");
+        if (!src) {
+            // Creating a new file
+            // Open file for both reading and writing
+            src = fopen(inputfile, "w+");
 
+            if (!src) {
+                // "Error starting the SD card
+                for (i = 0; i<5;i++){
+                  GPIO_toggle(CONFIG_SD_LED_RED); // Toggle LED
+                  Task_sleep(100);
+                }
+                break;
+            }
+
+            fwrite(textarray, 1, strlen(textarray), src);
+            fflush(src);
+
+            /* Reset the internal file pointer */
+            rewind(src);
+
+            for (i = 0; i<2;i++){
+              GPIO_toggle(CONFIG_SD_LED_GREEN); // Toggle LED
+              Task_sleep(50);
+            }
+        }
+        else {
+          // Using already existing file
+                  for (i = 0; i<2;i++){
+                      GPIO_toggle(CONFIG_SD_LED_BLUE); // Toggle LED
+                      Task_sleep(250);
+                  }
+        }
+
+        /* Get the filesize of the source file */
+        fseek(src, 0, SEEK_END);
+        filesize = ftell(src);
+        rewind(src);
+
+        // Close both inputfile[]
+        fclose(src);
+
+      }
+      /* Stopping the SDCard */
+      SDFatFS_close(sdfatfsHandle);
+     // UART_write(uart0,  "Drive %u unmounted\n", DRIVE_NUM);
 
 }
 
@@ -342,5 +399,22 @@ void gpioButtonFxn0(uint_least8_t index)
     GPIO_toggle(CONFIG_GPIO_LED_0); // Toggle LED
 
     Semaphore_post(SEM_sdCard_Save);
+}
+
+//*****************************************************************************
+// gpioButtonFxn1
+//
+// Callback function for the GPIO interrupt on Board_GPIO_BUTTON1
+//
+// Notes:
+//   - CONFIG_GPIO_BUTTON_1 is connected to Switch 2 (SW2) on the LaunchPad
+//   - The "index" argument is not used by this function, but it references
+//     which GPIO input was triggered as defined by the GPIOName provided
+//     in the project's board specific header file
+//*****************************************************************************
+void gpioButtonFxn1(uint_least8_t index)
+{
+    GPIO_toggle(CONFIG_GPIO_LED_1);                                             // Toggle LED
+    GPIO_toggle(CONFIG_SD_LED_GREEN); // Toggle LED
 }
 
