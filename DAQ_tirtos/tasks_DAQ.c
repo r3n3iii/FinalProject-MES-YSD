@@ -35,6 +35,7 @@
 #include "printf.h"
 #include "myMailbox.h"
 #include "filters.h"
+#include "sdCard.h"
 //#define EMGBUFF         64
 
 /*-----------------GLOBAL VARIABLES--------------------*/
@@ -54,14 +55,59 @@ uint8_t reception_complete = FALSE;
 
 UART_Handle uart0,uart1;
 
+/*-----------------SD write VARIABLES--------------------*/
+int bufsize(char *buf)
+{
+    int i = 0;
+    while(*buf++ != '\0') i++;
+    return i;
+}
+void bufclear(void)
+{
+    int i;
+    for(i=0; i<1024; i++)
+    {
+        buffer[i] = '\0';
+    }
+
+}
+const char inputfile[] = "fat:"STR(DRIVE_NUM)":input.txt";
+const char outputfile[] = "fat:"STR(DRIVE_NUM)":output.txt";
+
+const char textarray[] = \
+"***********************************************************************\n"
+"0         1         2         3         4         5         6         7\n"
+"01234567890123456789012345678901234567890123456789012345678901234567890\n"
+"This is some text to be inserted into the inputfile if there isn't\n"
+"already an existing file located on the media.\n"
+"If an inputfile already exists, or if the file was already once\n"
+"generated, then the inputfile will NOT be modified.\n"
+"***********************************************************************\n";
+
+
+
+/* Set this to the current UNIX time in seconds */
+/*const struct timespec ts = {
+    .tv_sec = 1469647026,
+    .tv_nsec = 0
+};*/
+
+/* File name prefix for this filesystem for use with TI C RTS */
+char fatfsPrefix[] = "fat";
+
+unsigned char cpy_buff[CPY_BUFF_SIZE];
+
 /*------------------- SEMAPHORES ----------------------*/
 extern  Semaphore_Handle    SEM_cli,  SEM_semg, SEM_printData, SEM_mpu6050,
-                            SEM_printRAW_sEMG, SEM_printRAW_mpu6050;
+                            SEM_printRAW_sEMG, SEM_printRAW_mpu6050, SEM_sdCard_Save;
 
-extern Mailbox_Handle      mbHandle_semg, mbHandle_mpu6050, mbHandle_printData;
+extern Mailbox_Handle       mbHandle_semg, mbHandle_mpu6050, mbHandle_printData;
+extern Task_Handle          HandleTaskSDCard;
 
 /*-----------=---- FUNCTION PROTOTYPES ----------------*/
 static float convertToFloat(uint16_t result);
+
+
 
 /*
  *  ======== fnTaskCLI ========
@@ -72,18 +118,20 @@ void fnTaskCLI(UArg arg0, UArg arg1)
 
     ConsoleInit();
 
-    while (1) {
-            Semaphore_pend(SEM_cli, BIOS_WAIT_FOREVER); // when a character is received via UART, the interrupt handler will release the binary semaphore
-
-            while (reception_complete != TRUE){
-                       UART_read(uart0, &recvd_data, 1);
-                   }
-               reception_complete = FALSE;
-               ConsoleProcess();
-
-            MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN0); // LED B - visual clue that we've received a request over USB
-            MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN0); // LED B - visual clue off
+    while (1)
+    {
+        Semaphore_pend(SEM_cli, BIOS_WAIT_FOREVER);
+        if (reception_complete != TRUE){
+            UART_read(uart0, &recvd_data, 1);
         }
+        else{
+           reception_complete = FALSE;
+           ConsoleProcess();
+        }
+
+       MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN0); // LED B - visual clue that we've received a request over USB
+       MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN0); // LED B - visual clue off
+   }
 }
 
  /*  ======== fnTaskSEMG ========
@@ -111,14 +159,6 @@ void fnTaskSEMG_getData(UArg arg0, UArg arg1)
            semg.emgRaw[1] = MAP_ADC14_getResult(ADC_MEM1)-8191;
            semg.emgRaw[2] = MAP_ADC14_getResult(ADC_MEM2)-8191;
            semg.emgRaw[3] = MAP_ADC14_getResult(ADC_MEM3)-8191;
-          /* semg.emgRaw[0] = convertToFloat(MAP_ADC14_getResult(ADC_MEM0)-8191);            //Converting EMG signal to float an mV
-           semg.emgRaw[1] = convertToFloat(MAP_ADC14_getResult(ADC_MEM1)-8191);
-           semg.emgRaw[2] = convertToFloat(MAP_ADC14_getResult(ADC_MEM2)-8191);
-           semg.emgRaw[3] = convertToFloat(MAP_ADC14_getResult(ADC_MEM3)-8191);*/
-          /* semg.emgRaw[4] = convertToFloat(MAP_ADC14_getResult(ADC_MEM4)-8191);
-           semg.emgRaw[5] = convertToFloat(MAP_ADC14_getResult(ADC_MEM5)-8191);
-           semg.emgRaw[6] = convertToFloat(MAP_ADC14_getResult(ADC_MEM6)-8191);
-           semg.emgRaw[7] = convertToFloat(MAP_ADC14_getResult(ADC_MEM7)-8191);*/
 
            Mailbox_post(mbHandle_semg, &semg, BIOS_WAIT_FOREVER);//Print raw data over serial
        }
@@ -204,6 +244,54 @@ void fnTaskPrintData(UArg arg0, UArg arg1){
     }
 }
 
+/*
+ *  ======== fnTaskSDCardSave ========
+ *  Task for this function is created statically. See the project's .cfg file.
+ */
+void fnSDCardSave(UArg arg0, UArg arg1){
+
+    SDFatFS_Handle sdfatfsHandle;
+
+    /* Variables for the CIO functions */
+    FILE *src, *dst;
+
+    char strData[100];
+
+    /* Variables to keep track of the file copy progress */
+    unsigned int bytesRead = 0;
+    unsigned int bytesWritten = 0;
+    unsigned int filesize;
+    unsigned int totalBytesCopied = 0;
+
+    /* Return variables */
+    int result;
+    /* Call driver init functions */
+    SDFatFS_init();
+
+    /* add_device() should be called once and is used for all media types */
+    add_device(fatfsPrefix, _MSA, ffcio_open, ffcio_close, ffcio_read,
+        ffcio_write, ffcio_lseek, ffcio_unlink, ffcio_rename);
+
+    /* Initialize real-time clock */
+   // clock_settime(CLOCK_REALTIME, &ts);
+   // Semaphore_pend(SEM_sdCard_Save, BIOS_WAIT_FOREVER);
+    /* Mount and register the SD Card */
+    sdfatfsHandle = SDFatFS_open(CONFIG_SD_0, DRIVE_NUM);
+    if (sdfatfsHandle == NULL) {
+     //   UART_write(uart0, "Error starting the SD card\n", sizeof("Error starting the SD card\n"));
+        //while (1);
+        Task_block(HandleTaskSDCard);
+
+    }
+    else {
+
+       // UART_write(uart0, "Drive %u is mounted\n", DRIVE_NUM);
+    }
+
+
+
+}
+
 //*****************************************************************************
 // Convert to float Function
 //*****************************************************************************
@@ -229,10 +317,30 @@ void UART00_IRQHandler(UART_Handle handle, void *buffer, size_t num)
     if(recvd_data == '\n'){
             reception_complete = TRUE;
             mReceiveBuffer[count++] = '\n';
+           // Semaphore_post(SEM_cli);
         }else
         {
 
             mReceiveBuffer[count++] = recvd_data;
         }
+
+}
+
+//*****************************************************************************
+// gpioButtonFxn0
+//
+// Callback function for the GPIO interrupt on Board_GPIO_BUTTON0
+//
+// Notes:
+//   - CONFIG_GPIO_BUTTON_0 is connected to Switch 1 (SW1) on the LaunchPad
+//   - The "index" argument is not used by this function, but it references
+//     which GPIO input was triggered as defined by the GPIOName provided
+//     in the project's board specific header file
+//*****************************************************************************
+void gpioButtonFxn0(uint_least8_t index)
+{
+    GPIO_toggle(CONFIG_GPIO_LED_0); // Toggle LED
+
+    Semaphore_post(SEM_sdCard_Save);
 }
 
